@@ -32,6 +32,41 @@
  .backups button{padding:6px 4px;font-size:14px}
 }
 @media(max-width:550px){.sync-banner{margin-bottom:16px}.sync-banner a{width:100%}.word-panel .list{max-height:180px}}
+
+/* Layout para celular */
+@media (max-width: 550px) {
+  aside { padding: 12px 14px 10px; }
+  .brand { font-size: 20px; line-height: 1.15; align-self: center; }
+  .views button, .backups summary, .backups button { min-height: 44px; }
+  .backups summary { padding: 11px 7px; }
+  .backups button { padding-inline: 8px; }
+  main { padding: 14px 14px 28px; }
+  .sync-banner { padding: 10px 12px; gap: 8px; margin-bottom: 14px; }
+  .sync-banner p { flex: 1 1 165px; font-size: 14px; line-height: 1.35; }
+  .sync-banner .action { flex: 0 1 auto; min-height: 44px; }
+  header { align-items: center; gap: 8px; }
+  h1 { margin: 0; font-size: clamp(27px, 8vw, 37px); line-height: 1.08; }
+  header .new { min-height: 44px; white-space: nowrap; }
+  .tools { position: sticky; top: 0; z-index: 2; gap: 6px; margin: 8px -14px 10px; padding: 8px 14px; background: #f7f2e8; }
+  .tools input, .action, .chips button { min-height: 44px; }
+  #chips { flex-wrap: nowrap; overflow-x: auto; padding: 3px 3px 5px; }
+  #chips button { flex: none; white-space: nowrap; }
+  .columns { gap: 12px; }
+  .word-panel { padding: 8px; }
+  .word-panel .list { max-height: min(32dvh, 245px); }
+  .word { min-height: 48px; padding: 8px 10px; }
+  .word strong { font-size: 20px; }
+  .entry { scroll-margin-top: 124px; padding: 16px; }
+  .entry h2 { font-size: clamp(29px, 9vw, 44px); }
+  .entry .actions .action { flex: 1 1 auto; }
+  #editor { inset: auto 0 0; margin: 0; width: 100%; max-width: none; max-height: 94dvh; border-radius: 16px 16px 0 0; overscroll-behavior: contain; }
+  #editor form { padding: 14px 14px max(12px, env(safe-area-inset-bottom)); }
+  #editor .footer { bottom: 0; z-index: 1; }
+  #editor .footer .actions { margin-top: 6px; }
+  #editor .footer .actions .action { flex: 1 1 100px; }
+  #add-sense { min-height: 44px; }
+  #login form { padding: 16px; }
+}
 </style>
 <aside aria-label="Menu">
 <p class="brand"><span aria-hidden="true">✦</span>Meu Dicionário<br> Pessoal</p>
