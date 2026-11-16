@@ -49,14 +49,23 @@
 </aside>
 <main>
 <section class="sync-banner" aria-label="Armazenamento das fichas">
-<p><strong>Dicionário local</strong><br>As fichas criadas aqui ficam neste navegador. Para ver as que você salvou pelo ChatGPT, abra o dicionário sincronizado.</p>
-<a class="action primary" href="https://meu-dicionario-pessoal-sync.soeirotech.chatgpt.site/">Abrir fichas sincronizadas</a>
+<p><strong id="storage-label">Dicionário local</strong><br><span id="storage-description">As fichas criadas aqui ficam neste navegador. Entre para sincronizar com seus outros dispositivos.</span></p>
+<button class="action primary" type="button" id="sign-in">Entrar por e-mail</button>
+<button class="action" type="button" id="sign-out" hidden>Sair</button>
 </section>
 <header><h1 id="heading">Minhas palavras</h1><button id="new" class="action new">＋ Nova ficha</button></header>
 <div id="notice" role="status"></div>
 <div class="tools" id="tools"><input id="query" type="search" aria-label="Buscar palavra, sinônimo ou fonte" placeholder="Buscar palavra, sinônimo ou fonte"><div id="chips" class="chips" role="group" aria-label="Filtrar por coleção"></div></div>
 <div class="columns" id="columns"><section class="word-panel" aria-labelledby="word-list-label"><h2 id="word-list-label">Fichas</h2><div class="list" id="list"></div></section><article class="entry" id="entry" aria-label="Ficha selecionada"></article></div>
 </main>
+<dialog id="login" aria-labelledby="login-title">
+<form id="login-form">
+<h2 id="login-title">Entrar por e-mail</h2>
+<label>E-mail<input name="email" type="email" autocomplete="email" required></label>
+<p id="login-status" role="status"></p>
+<div class="actions"><button class="action primary">Enviar link</button><button type="button" id="close-login" class="action">Fechar</button></div>
+</form>
+</dialog>
 <dialog id="editor" aria-labelledby="edit-title">
 <form id="form">
 <h2 id="edit-title">Nova ficha</h2>
@@ -72,7 +81,8 @@
 <div class="footer"><p class="error" id="error" role="alert"></p><div class="actions"><button class="action primary">Salvar ficha</button><button class="action" type="button" id="cancel">Cancelar</button></div></div>
 </form>
 </dialog>
-<script>
+<script type="module">
+import { client, online } from "./dictionary-online.js";
 const $ = id => document.getElementById(id);
 const storeKey = 'meu-dicionario-pessoal-v1';
 const split = value => value.split(',').map(item => item.trim()).filter(Boolean);
@@ -91,7 +101,11 @@ try {
  const data = JSON.parse(localStorage.getItem(storeKey));
  if(Array.isArray(data) && data.every(valid)) records = data;
 } catch { $('notice').textContent = 'Não foi possível ler as fichas deste navegador.'; }
+let account = null;
+let refreshToken = 0;
+let localRecords = records;
 function save(next) {
+ localRecords = next;
  localStorage.setItem(storeKey,JSON.stringify(next));
  records = next;
 }
@@ -246,7 +260,7 @@ function edit(record) {
  (record?.senses || ['']).forEach(addSense);
  $('editor').showModal();
 }
-$('form').onsubmit = event => {
+$('form').onsubmit = async event => {
  event.preventDefault();
  const record = Object.fromEntries(fields.map(key => [key,$('form').elements[key].value.trim()]));
  record.senses = [...$('sense-fields').querySelectorAll('textarea')].map(area => area.value.trim()).filter(Boolean);
@@ -260,7 +274,13 @@ $('form').onsubmit = event => {
   return;
  }
  try {
-  save(editing ? records.map(item => item.id === editing ? record : item) : [...records,record]);
+  if(account) {
+   const saved = await online.save(record, Boolean(editing));
+   record.id = saved.id;
+   records = [...records.filter(item => item.id !== record.id), saved];
+  } else {
+   save(editing ? records.map(item => item.id === editing ? record : item) : [...records,record]);
+  }
  } catch {
   $('error').textContent = 'O navegador não conseguiu salvar a ficha. Confira o armazenamento disponível.';
   return;
@@ -301,8 +321,9 @@ $('file').onchange = async event => {
    while(merged.some(item => item.id === id)) id += '-import';
    merged.push({...record,id});
   }
-  const count = merged.length-records.length;
-  save(merged);
+  const count = account ? await online.import(merged.slice(records.length)) : merged.length-records.length;
+  if(account) await refreshOnline();
+  else save(merged);
   $('notice').textContent = count ? count+' ficha(s) importada(s).' : 'O backup não continha fichas novas.';
   render();
  } catch {
@@ -311,6 +332,66 @@ $('file').onchange = async event => {
   event.target.value = '';
  }
 };
+async function refreshOnline() {
+ const user = account;
+ const token = ++refreshToken;
+ if(!user) return;
+ const incoming = await online.load();
+ if(account?.id !== user.id || token !== refreshToken) return;
+ records = incoming.filter(valid);
+ render();
+}
+function reportSyncError() {
+ $('notice').textContent = 'Não foi possível sincronizar. Tente recarregar a página.';
+}
+async function setAccount(session) {
+ const previous = account;
+ const next = session?.user ?? null;
+ if(previous?.id === next?.id) return;
+ account = next;
+ ++refreshToken;
+ if($('editor').open) $('editor').close();
+ records = next ? [] : localRecords;
+ $('sign-in').hidden = Boolean(next);
+ $('sign-out').hidden = !next;
+ $('storage-label').textContent = next ? 'Dicionário sincronizado' : 'Dicionário local';
+ $('storage-description').textContent = next
+  ? 'As fichas desta conta aparecem nos dispositivos em que você entrar.'
+  : 'As fichas criadas aqui ficam neste navegador. Entre para sincronizar com seus outros dispositivos.';
+ render();
+ if(!next) return;
+ const marker = storeKey + ':synced:' + next.id;
+ try {
+  if(localStorage.getItem(marker) !== 'yes') {
+   if(localRecords !== sample) await online.import(localRecords);
+   localStorage.setItem(marker,'yes');
+  }
+  await refreshOnline();
+ } catch { reportSyncError(); }
+}
+$('sign-in').onclick = () => {
+ $('login-status').textContent = '';
+ $('login').showModal();
+};
+$('close-login').onclick = () => $('login').close();
+$('sign-out').onclick = () => online.signOut().catch(reportSyncError);
+$('login-form').onsubmit = async event => {
+ event.preventDefault();
+ const form = event.currentTarget;
+ const submit = form.querySelector('button:not([type])');
+ submit.disabled = true;
+ try {
+  await online.sendLink(form.elements.email.value);
+  $('login-status').textContent = 'Confira sua caixa de entrada e abra o link neste navegador.';
+ } catch {
+  $('login-status').textContent = 'Não foi possível enviar o link. Confira o e-mail ou tente novamente mais tarde.';
+ } finally { submit.disabled = false; }
+};
+client.auth.onAuthStateChange((_event, session) => setTimeout(() => {
+ setAccount(session).catch(reportSyncError);
+}, 0));
+window.addEventListener('focus', () => refreshOnline().catch(reportSyncError));
+setInterval(() => { if (!document.hidden) refreshOnline().catch(reportSyncError); }, 15000);
 render();
 </script>
 </html>
