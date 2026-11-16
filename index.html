@@ -7,26 +7,55 @@
 *{box-sizing:border-box}body{margin:0;background:#f7f2e8;color:#172c2a;font:16px system-ui,sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #ac6b25;outline-offset:3px}aside{background:#073e43;color:#fff8e9;padding:32px 22px;min-height:100dvh;display:flex;flex-direction:column;gap:12px}.brand{font:bold 28px Georgia;margin:0 0 20px;border-bottom:1px solid #b68547;padding-bottom:28px}.brand span{color:#e7ba78;display:block;font-size:33px}aside button{text-align:left;background:transparent;border:0;color:inherit;padding:12px;border-radius:8px}aside button:hover,aside button[aria-pressed=true]{background:#ffffff22}body{display:grid;grid-template-columns:230px minmax(0,1fr)}main{width:100%;max-width:1280px;margin:auto;padding:clamp(18px,4vw,52px);align-self:start;margin-top:0}header,.tools,.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}header{justify-content:space-between}h1,h2{font-family:Georgia,serif;overflow-wrap:anywhere}h1{font-size:clamp(35px,5vw,64px);margin:0 0 12px}h2{font-size:clamp(34px,5vw,62px);margin:0}.tools{margin:16px 0 22px}.tools input{flex:1 1 250px}.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button,.action{border:1px solid #9aab9e;border-radius:9px;padding:9px 13px;background:#fffaf1}.chips button[aria-pressed=true],.primary{background:#085359;color:white;border-color:#085359}.new{background:#864c20;color:white;border-color:#864c20}input,textarea,select{width:100%;padding:10px;border:1px solid #a5ada2;border-radius:7px;background:#fffdf8;color:#142725}.columns{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,2.25fr);gap:16px}.list,.entry{border:1px solid #d9cdb8;border-radius:14px;background:#fffbf3;padding:12px;min-width:0}.entry{padding:clamp(18px,4vw,36px);overflow-wrap:anywhere}.word{display:block;width:100%;border:0;border-bottom:1px solid #e5dac8;background:none;text-align:left;padding:13px 10px;overflow-wrap:anywhere}.word strong{font:700 23px Georgia}.word small{display:block;margin-top:4px}.word[aria-current=true]{background:#e0ebe3;border-left:4px solid #a46a31;border-radius:7px}.entry-head{border-bottom:1px solid #b88b53;padding-bottom:16px}.entry-head em{color:#46554e}.senses{padding-left:25px;line-height:1.6}.senses li::marker{color:#864c20;font-weight:bold}blockquote{margin:16px 0;padding:14px 18px;background:#efe6d5;border-left:4px solid #9b5b2d;font:italic 20px Georgia}dl{margin:16px 0}dt{font-weight:bold;margin-top:10px}dd{margin:3px 0 0;white-space:pre-wrap}.actions{margin-top:22px}.muted{color:#46554e}#notice{min-height:24px;margin:5px 0}dialog{width:min(680px,96vw);max-height:92dvh;border:1px solid #d9cdb8;border-radius:16px;background:#f7f2e8;color:inherit;padding:0}dialog::backdrop{background:#082e35aa}form{padding:20px}form h2{font-size:32px;margin-bottom:12px}label{display:block;font-weight:650;margin:10px 0}label input,label textarea,label select{display:block;margin-top:4px}textarea{min-height:64px;resize:vertical}.footer{position:sticky;bottom:0;background:#f7f2e8;padding:8px 0}.error{color:#8b2617;margin:0}.secondary{background:none;border:0;text-decoration:underline;padding:4px}.backup{margin-top:auto}
 @media(max-width:820px){body{display:block}aside{min-height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding:12px}.brand{font-size:21px;border:0;padding:0;margin:0 10px 0 0}.brand span{display:none}.backup{margin-top:0}}
 @media(max-width:550px){.columns{grid-template-columns:1fr}.list{max-height:220px;overflow:auto}.mobile-hidden{display:none}.tools{margin-top:8px}}
-.sync-banner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:10px 0 14px;padding:12px 16px;background:#e0ebe3;border:1px solid #9aab9e;border-radius:9px}.sync-banner p{margin:0}.sync-banner a{text-decoration:none}.sync-banner a:hover{text-decoration:underline}.sync-banner a:focus-visible{outline:3px solid #ac6b25;outline-offset:3px}
+
+.views{display:grid;gap:6px}
+.backups{margin-top:auto;border-top:1px solid #ffffff40;padding-top:12px}
+.backups summary{cursor:pointer;padding:9px 12px}
+.backups button{display:block;width:100%}
+.sync-banner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 22px;padding:12px 16px;background:#e0ebe3;border:1px solid #9aab9e;border-radius:9px}
+.sync-banner p{margin:0;line-height:1.45}
+.sync-banner a{text-decoration:none;text-align:center}
+.sync-banner a:hover{text-decoration:underline}
+.sync-banner a:focus-visible,.backups summary:focus-visible{outline:3px solid #ac6b25;outline-offset:3px}
+.tools{display:grid;gap:10px;margin:6px 0 16px}
+.word-panel{min-width:0;align-self:start;border:1px solid #d9cdb8;border-radius:14px;background:#fffbf3;padding:12px}
+.word-panel h2{font:700 16px system-ui,sans-serif;margin:0;padding:4px 10px 10px}
+.word-panel .list{border:0;background:transparent;padding:0}
+#notice:empty{display:none}
+@media(max-width:820px){
+ aside{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
+ .brand{margin:0}.brand br{display:none}.brand br::after{content:" "}
+ .views{grid-column:1/-1;grid-row:2;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .views button{text-align:center;padding:9px 4px;line-height:1.2}
+ .backups{grid-column:2;grid-row:1;margin:0;padding:0;border:0;align-self:start}
+ .backups summary{padding:8px 4px}
+ .backups button{padding:6px 4px;font-size:14px}
+}
+@media(max-width:550px){.sync-banner{margin-bottom:16px}.sync-banner a{width:100%}.word-panel .list{max-height:180px}}
 </style>
 <aside aria-label="Menu">
-<p class="brand"><span aria-hidden="true">✦</span>Meu Dicionário<br>Pessoal</p>
+<p class="brand"><span aria-hidden="true">✦</span>Meu Dicionário<br> Pessoal</p>
+<nav class="views" aria-label="Seções do dicionário">
 <button id="words" aria-pressed="true">Minhas palavras</button>
 <button id="collections" aria-pressed="false">Coleções</button>
 <button id="review" aria-pressed="false">Revisar palavras</button>
-<button id="export" class="backup">Exportar backup</button>
-<button id="import">Importar backup</button>
+</nav>
+<details class="backups">
+<summary>Backups</summary>
+<div><button id="export">Exportar backup</button>
+<button id="import">Importar backup</button></div>
+</details>
 <input id="file" type="file" accept=".json,application/json" hidden>
 </aside>
 <main>
-<header><h1 id="heading">Minhas palavras</h1><button id="new" class="action new">＋ Nova ficha</button></header>
 <section class="sync-banner" aria-label="Armazenamento das fichas">
-<p><strong>Você está na versão local.</strong> As fichas salvas pelo ChatGPT aparecem no dicionário online.</p>
-<a class="action primary" href="https://meu-dicionario-pessoal-sync.soeirotech.chatgpt.site/">Abrir dicionário sincronizado</a>
+<p><strong>Dicionário local</strong><br>As fichas criadas aqui ficam neste navegador. Para ver as que você salvou pelo ChatGPT, abra o dicionário sincronizado.</p>
+<a class="action primary" href="https://meu-dicionario-pessoal-sync.soeirotech.chatgpt.site/">Abrir fichas sincronizadas</a>
 </section>
+<header><h1 id="heading">Minhas palavras</h1><button id="new" class="action new">＋ Nova ficha</button></header>
 <div id="notice" role="status"></div>
-<div class="tools" id="tools"><input id="query" type="search" aria-label="Buscar palavra, sinônimo ou fonte" placeholder="Buscar palavra, sinônimo ou fonte"><div id="chips" class="chips"></div></div>
-<div class="columns" id="columns"><section class="list" id="list" aria-label="Lista de palavras"></section><article class="entry" id="entry" aria-label="Ficha selecionada"></article></div>
+<div class="tools" id="tools"><input id="query" type="search" aria-label="Buscar palavra, sinônimo ou fonte" placeholder="Buscar palavra, sinônimo ou fonte"><div id="chips" class="chips" role="group" aria-label="Filtrar por coleção"></div></div>
+<div class="columns" id="columns"><section class="word-panel" aria-labelledby="word-list-label"><h2 id="word-list-label">Fichas</h2><div class="list" id="list"></div></section><article class="entry" id="entry" aria-label="Ficha selecionada"></article></div>
 </main>
 <dialog id="editor" aria-labelledby="edit-title">
 <form id="form">
@@ -138,6 +167,7 @@ function render() {
  area.replaceChildren();
  chips.replaceChildren();
  $('tools').hidden = mode === 'review';
+ $('list').parentElement.hidden = mode === 'review';
  $('tools').style.display = mode === 'review' ? 'none' : '';
  list.style.display = mode === 'review' ? 'none' : '';
  $('columns').style.display = mode === 'review' ? 'block' : '';
