@@ -202,6 +202,22 @@ blockquote { background: #f7efe0; border-left-color: #bc833e; }
     box-shadow: 0 5px 18px #173a3033;
   }
 }
+
+.quick-desktop { display: grid; gap: 2px; border-top: 1px solid #ffffff35; padding-top: 6px; }
+.quick-mobile { display: none; }
+.quick-label { color: #f3cd94; padding: 7px 10px 2px; margin: 0; font-weight: 650; font-size: .75rem; }
+aside .shortcut { min-height: 38px; padding: 7px 10px; overflow-wrap: anywhere; font-size: .88rem; }
+aside .shortcut[aria-current=true] { background: #fff3df; color: var(--petrol); font-weight: 650; }
+aside .shortcut:disabled { opacity: .65; cursor: default; }
+.favorite { margin: 8px 0 0 10px; }
+.favorite[aria-pressed=true] { background: #f7efe0; border-color: #bc833e; }
+.review-today { display: flex; gap: 8px 14px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+@media (max-width: 820px) {
+ .quick-desktop { display: none; }
+ .quick-mobile { display: grid; grid-column: 1 / -1; width: 100%; border-bottom: 1px solid #ffffff35; padding-bottom: 5px; }
+ .backups[open] > div { max-height: min(70dvh, 460px); overflow: auto; }
+ aside .shortcut, .backups[open] .shortcut { min-height: 44px; text-align: left; }
+}
 </style>
 <aside aria-label="Menu">
 <div class="brand"><img src="./marca-monograma.png" width="34" height="34" alt=""><div>Meu Dicionário Pessoal</div></div>
@@ -210,9 +226,10 @@ blockquote { background: #f7efe0; border-left-color: #bc833e; }
 <button id="collections" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▤</span><span>Coleções</span></button>
 <button id="review" aria-pressed="false"><span class="nav-icon" aria-hidden="true">↻</span><span>Revisar</span></button>
 </nav>
+<nav class="quick-desktop" aria-label="Acesso rápido"></nav>
 <details class="backups">
 <summary><span class="backup-desktop">Backups</span><span class="backup-mobile"><span class="nav-icon" aria-hidden="true">⋯</span>Mais</span></summary>
-<div><button id="export">Exportar backup</button>
+<div><nav class="quick-mobile" aria-label="Acesso rápido"></nav><button id="export">Exportar backup</button>
 <button id="import">Importar backup</button></div>
 </details>
 <input id="file" type="file" accept=".json,application/json" hidden>
@@ -320,6 +337,22 @@ function showEntry(record) {
  const head = element(area,'div',null,'entry-head');
  element(head,'h2',displayWord(record.word));
  element(head,'em',record.grammar);
+ const favorites = preferences().favorites;
+ const favorite = button(head, favorites.includes(record.id) ? '★ Favorita' : '☆ Favoritar', () => {
+  const index = favorites.indexOf(record.id);
+  if (index === -1) favorites.push(record.id);
+  else favorites.splice(index,1);
+  savePreferences();
+  if (quickFilter === 'favorites') {
+   render();
+   $('heading').tabIndex = -1;
+   $('heading').focus({preventScroll:true});
+  } else {
+   favorite.textContent = favorites.includes(record.id) ? '★ Favorita' : '☆ Favoritar';
+   favorite.setAttribute('aria-pressed', String(favorites.includes(record.id)));
+  }
+ }, 'action favorite');
+ favorite.setAttribute('aria-pressed', String(favorites.includes(record.id)));
  const list = element(area,'ol',null,'senses');
  record.senses.forEach(sense => element(list,'li',sense));
  if(record.example) element(area,'blockquote',record.example);
@@ -337,7 +370,90 @@ function showEntry(record) {
  button(actions,'Editar ficha',() => edit(record),'action primary');
  button(actions,'Copiar ficha',() => copy(record));
 }
+let quickFilter = '';
+const quickCache = new Map();
+
+function preferences() {
+ const key = storeKey + ':atalhos:' + (account?.id || 'local');
+ if (!quickCache.has(key)) {
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem(key)) || {}; } catch {}
+  quickCache.set(key, {
+   last: typeof stored.last === 'string' ? stored.last : '',
+   favorites: Array.isArray(stored.favorites) ? stored.favorites : [],
+   pins: Array.isArray(stored.pins) ? stored.pins.slice(0,3) : [],
+   reviewed: new Map(Array.isArray(stored.reviewed) ? stored.reviewed.filter(Array.isArray) : []),
+  });
+ }
+ return quickCache.get(key);
+}
+
+function savePreferences() {
+ const prefs = preferences();
+ const key = storeKey + ':atalhos:' + (account?.id || 'local');
+ try { localStorage.setItem(key, JSON.stringify({...prefs, reviewed:[...prefs.reviewed]})); } catch {}
+}
+
+function dueToday() {
+ const reviewed = preferences().reviewed;
+ const today = new Date().toDateString();
+ return records.filter(record => reviewed.get(record.id) !== today);
+}
+
+function selectQuickFilter(filter) {
+ mode = 'words';
+ quickFilter = filter;
+ collection = '';
+ $('query').value = '';
+ render();
+}
+
+function showCollection(tag) {
+ mode = 'collections';
+ quickFilter = '';
+ collection = tag;
+ $('query').value = '';
+ render();
+}
+
+function renderShortcuts() {
+ const prefs = preferences();
+ const pending = dueToday().length;
+ const last = records.find(record => record.id === prefs.last);
+ const tags = new Set(records.flatMap(record => split(record.tags)));
+ const pins = prefs.pins.filter(tag => tags.has(tag));
+ const signature = JSON.stringify([last?.id, pending, pins, quickFilter, mode, collection]);
+ for (const container of document.querySelectorAll('.quick-desktop, .quick-mobile')) {
+  if (container.dataset.state === signature) continue;
+  container.dataset.state = signature;
+  container.replaceChildren();
+  const shortcut = (label, callback, active = false) => {
+   const item = button(container,label,() => {
+    const mobile = container.classList.contains('quick-mobile');
+    document.querySelector('.backups').open = false;
+    callback();
+    const target = mobile ? $('heading') : [...container.querySelectorAll('button')].find(candidate => candidate.textContent === label);
+    if (target) { target.tabIndex = target === $('heading') ? -1 : 0; target.focus({preventScroll:true}); }
+   }, 'shortcut');
+   if (active) item.setAttribute('aria-current','true');
+   return item;
+  };
+  element(container,'p','Acesso rápido','quick-label');
+  shortcut('Continuar de onde parei', () => openWord(last.id)).disabled = !last;
+  shortcut('Adicionadas recentemente', () => selectQuickFilter('recent'), quickFilter === 'recent');
+  shortcut('Favoritas', () => selectQuickFilter('favorites'), quickFilter === 'favorites');
+  shortcut('Para revisar hoje (' + pending + ')', () => startReview(true)).disabled = pending === 0;
+  if (pins.length) {
+   element(container,'p','Coleções fixadas','quick-label');
+   for (const tag of pins) shortcut(tag, () => showCollection(tag), mode === 'collections' && collection === tag);
+  }
+ }
+}
+
 function openWord(id) {
+ preferences().last = id;
+ savePreferences();
+ quickFilter = '';
  selected = id;
  mode = 'words';
  collection = '';
@@ -346,7 +462,8 @@ function openWord(id) {
  if(matchMedia('(max-width: 550px)').matches) $('entry').scrollIntoView({block:'start'});
 }
 function render() {
- $('heading').textContent = {words:'Minhas palavras',collections:'Coleções',review:'Revisar palavras'}[mode];
+ $('heading').textContent = {recent:'Adicionadas recentemente',favorites:'Favoritas'}[quickFilter] || {words:'Minhas palavras',collections:'Coleções',review:'Revisar palavras'}[mode];
+ renderShortcuts();
  for(const name of ['words','collections','review']) $(name).setAttribute('aria-pressed',String(name === mode));
  const list = $('list'), area = $('entry'), chips = $('chips');
  list.replaceChildren();
@@ -358,6 +475,10 @@ function render() {
  list.style.display = mode === 'review' ? 'none' : '';
  $('columns').style.display = mode === 'review' ? 'block' : '';
  if(mode === 'review') {
+  const pending = dueToday().length;
+  const today = element(area,'div',null,'review-today');
+  element(today,'span',pending + (pending === 1 ? ' ficha para revisar hoje' : ' fichas para revisar hoje'));
+  if(pending) button(today,'Revisar pendentes',() => startReview(true));
   const record = reviewSet[reviewIndex];
   if(!record) {
    element(area,'h2','Revisão concluída');
@@ -373,6 +494,7 @@ function render() {
   const actions = element(area,'div',null,'actions');
   button(actions,revealed ? 'Próxima palavra' : 'Revelar ficha',() => {
    if(revealed) reviewIndex++;
+   else { preferences().reviewed.set(record.id,new Date().toDateString()); savePreferences(); }
    revealed = !revealed;
    render();
   },'action primary');
@@ -383,10 +505,34 @@ function render() {
   const chip = button(chips,tag || 'Todas',() => {collection = tag; render();});
   chip.setAttribute('aria-pressed',String(collection === tag));
  }
+ if (mode === 'collections' && collection) {
+  const pins = preferences().pins;
+  const pinned = pins.includes(collection);
+  const pin = button(chips,pinned ? 'Desafixar coleção' : 'Fixar coleção',() => {
+   if (pinned) pins.splice(pins.indexOf(collection),1);
+   else if (pins.length < 3) pins.push(collection);
+   savePreferences();
+   render();
+   $('pin-collection')?.focus();
+  });
+  pin.id = 'pin-collection';
+  pin.setAttribute('aria-pressed',String(pinned));
+  if (!pinned && pins.length === 3) {
+   pin.disabled = true;
+   pin.textContent = 'Limite de 3 coleções fixadas';
+  }
+ }
  const query = normalize($('query').value);
  $('clear-query').hidden = $('query').value.length === 0;
- const matches = records.filter(record => (!collection || split(record.tags).includes(collection)) && normalize([record.word,record.synonyms,record.source].join(' ')).includes(query))
-  .sort((first, second) => alphabetical.compare(first.word, second.word));
+ const candidates = quickFilter === 'favorites' ? records.filter(record => preferences().favorites.includes(record.id)) : records;
+ const matches = candidates.filter(record => (!collection || split(record.tags).includes(collection)) && normalize([record.word,record.synonyms,record.source].join(' ')).includes(query))
+  .sort((first, second) => {
+   if (quickFilter === 'recent') {
+    const difference = (Date.parse(second.createdAt) || 0) - (Date.parse(first.createdAt) || 0);
+    if (difference) return difference;
+   }
+   return alphabetical.compare(first.word, second.word);
+  });
  const countLabel = matches.length === 1 ? '1 ficha' : matches.length + ' fichas';
  const count = query || collection ? countLabel + ' de ' + records.length : countLabel;
  if ($('word-count').textContent !== count) $('word-count').textContent = count;
@@ -394,6 +540,8 @@ function render() {
  for(const record of matches) {
   const item = button(list,null,() => {
    selected = record.id;
+   preferences().last = record.id;
+   savePreferences();
    render();
    if(matchMedia('(max-width: 550px)').matches) area.scrollIntoView({block:'start'});
    else area.querySelector('h2')?.focus();
@@ -408,11 +556,12 @@ function render() {
   area.querySelector('h2').tabIndex = -1;
  } else {
   element(list,'p','Nenhuma ficha encontrada.','muted');
-  element(area,'p','Mude os filtros ou crie uma nova ficha.');
+  element(area,'p',quickFilter === 'favorites' ? 'Abra uma ficha e toque em Favoritar para adicioná-la aqui.' : 'Mude os filtros ou crie uma nova ficha.');
  }
 }
-function startReview() {
- reviewSet = records.map(record => ({record,order:Math.random()})).sort((a,b) => a.order-b.order).slice(0,3).map(item => item.record);
+function startReview(onlyDue = false) {
+ quickFilter = '';
+ reviewSet = (onlyDue === true ? dueToday() : records).map(record => ({record,order:Math.random()})).sort((a,b) => a.order-b.order).slice(0,3).map(item => item.record);
  reviewIndex = 0;
  revealed = false;
  mode = 'review';
@@ -441,6 +590,7 @@ $('form').onsubmit = async event => {
  event.preventDefault();
  const record = Object.fromEntries(fields.map(key => [key,$('form').elements[key].value.trim()]));
  record.senses = [...$('sense-fields').querySelectorAll('textarea')].map(area => area.value.trim()).filter(Boolean);
+ record.createdAt = editing ? records.find(item => item.id === editing)?.createdAt : new Date().toISOString();
  record.id = editing || (globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
  if(!valid(record)) {
   $('error').textContent = 'Preencha a palavra, a classe gramatical e o primeiro significado.';
@@ -472,8 +622,8 @@ $('add-sense').onclick = () => {
  addSense();
  $('sense-fields').lastElementChild.querySelector('textarea').focus();
 };
-$('words').onclick = () => {mode = 'words'; collection = ''; render();};
-$('collections').onclick = () => {mode = 'collections'; $('query').value = ''; render(); $('chips').querySelector('button')?.focus();};
+$('words').onclick = () => {mode = 'words'; quickFilter = ''; collection = ''; render();};
+$('collections').onclick = () => {mode = 'collections'; quickFilter = ''; $('query').value = ''; render(); $('chips').querySelector('button')?.focus();};
 $('review').onclick = startReview;
 for (const section of document.querySelectorAll('.views button')) {
  section.addEventListener('click', () => { document.querySelector('.backups').open = false; });
@@ -542,6 +692,9 @@ async function setAccount(session) {
  if(previous?.id === next?.id) return;
  account = next;
  ++refreshToken;
+ quickFilter = '';
+ mode = 'words';
+ collection = '';
  if($('editor').open) $('editor').close();
  records = next ? [] : localRecords;
  $('sign-in').hidden = Boolean(next);
