@@ -218,6 +218,19 @@ aside .shortcut:disabled { opacity: .65; cursor: default; }
  .backups[open] > div { max-height: min(70dvh, 460px); overflow: auto; }
  aside .shortcut, .backups[open] .shortcut { min-height: 44px; text-align: left; }
 }
+
+/* Grupos do menu */
+.quick-desktop, .quick-mobile { gap: 8px; }
+.quick-group { display: grid; gap: 2px; padding: 0 0 6px; border-bottom: 1px solid #ffffff25; }
+.quick-group:last-child { border-bottom: 0; padding-bottom: 0; }
+.quick-label { padding: 6px 10px 3px; color: #f7dcae; }
+aside .shortcut { width: 100%; }
+.shortcut-detail { display: block; color: #d5e7e2; font-size: .75rem; margin-top: 3px; }
+.shortcut[aria-current=true] .shortcut-detail { color: var(--petrol); }
+@media (max-width: 820px) {
+ .quick-mobile { padding: 2px 0 9px; margin-bottom: 4px; }
+ .backups[open] > div { bottom: calc(100% + 6px); max-height: min(68dvh, 490px); }
+}
 </style>
 <aside aria-label="Menu">
 <div class="brand"><img src="./marca-monograma.png" width="34" height="34" alt=""><div>Meu Dicionário Pessoal</div></div>
@@ -339,10 +352,11 @@ function showEntry(record) {
  element(head,'em',record.grammar);
  const favorites = preferences().favorites;
  const favorite = button(head, favorites.includes(record.id) ? '★ Favorita' : '☆ Favoritar', () => {
+  const favorites = preferences().favorites;
   const index = favorites.indexOf(record.id);
   if (index === -1) favorites.push(record.id);
   else favorites.splice(index,1);
-  savePreferences();
+  syncPreference(index === -1 ? 'favorite' : 'unfavorite', record.id);
   if (quickFilter === 'favorites') {
    render();
    $('heading').tabIndex = -1;
@@ -394,6 +408,80 @@ function savePreferences() {
  try { localStorage.setItem(key, JSON.stringify({...prefs, reviewed:[...prefs.reviewed]})); } catch {}
 }
 
+let preferenceSession;
+
+function applyCloudPreferences(state) {
+ const prefs = preferences();
+ const next = state || {last_card:null,favorites:[],pins:[]};
+ const changed = prefs.last !== (next.last_card || '') ||
+   JSON.stringify(prefs.favorites) !== JSON.stringify(next.favorites) ||
+   JSON.stringify(prefs.pins) !== JSON.stringify(next.pins);
+ if (!changed) return;
+ prefs.last = next.last_card || '';
+ prefs.favorites = next.favorites;
+ prefs.pins = next.pins;
+ savePreferences();
+}
+
+function rememberCard(id) {
+ if (preferences().last === id) return;
+ preferences().last = id;
+ syncPreference('last', id);
+}
+
+function syncPreference(operation, value) {
+ savePreferences();
+ const sync = preferenceSession;
+ if (!sync) return;
+ const revision = ++sync.revision;
+ sync.pending++;
+ sync.queue = sync.queue.then(async () => {
+  if (preferenceSession !== sync) return false;
+  const state = await online.changePreference(operation, value);
+  if (preferenceSession === sync && sync.revision === revision) {
+   const previousPins = JSON.stringify(preferences().pins);
+   applyCloudPreferences(state);
+   if (mode === 'collections' && previousPins !== JSON.stringify(preferences().pins)) render();
+   else renderShortcuts();
+  }
+  return true;
+ }).catch(() => {
+  if (preferenceSession === sync) {
+   $('notice').textContent = 'Não foi possível sincronizar a preferência. Confira sua conexão.';
+  }
+  return false;
+ }).finally(() => { sync.pending--; });
+ return sync.queue;
+}
+
+async function fetchPreferences(sync) {
+ if (!sync || sync.pending) return;
+ const revision = sync.revision;
+ try {
+  const remote = await online.loadPreferences();
+  if (preferenceSession === sync && sync.revision === revision && !sync.pending) applyCloudPreferences(remote);
+ } catch {
+  // Card loading remains available if preferences cannot be reached.
+ }
+}
+
+function initializePreferences(user) {
+ const sync = {revision:0,pending:0,queue:Promise.resolve()};
+ preferenceSession = sync;
+ if (!user) { preferenceSession = undefined; return; }
+ const marker = storeKey + ':preferences-online:' + user.id;
+ let migrated = false;
+ try { migrated = localStorage.getItem(marker) === 'yes'; } catch {}
+ if (migrated) return;
+ const {last,favorites,pins} = preferences();
+ if (!last && !favorites.length && !pins.length) return;
+ syncPreference('merge', {last,favorites,pins}).then(saved => {
+  if (saved && preferenceSession === sync) {
+   try { localStorage.setItem(marker,'yes'); } catch {}
+  }
+ });
+}
+
 function dueToday() {
  const reviewed = preferences().reviewed;
  const today = new Date().toDateString();
@@ -422,37 +510,47 @@ function renderShortcuts() {
  const last = records.find(record => record.id === prefs.last);
  const tags = new Set(records.flatMap(record => split(record.tags)));
  const pins = prefs.pins.filter(tag => tags.has(tag));
- const signature = JSON.stringify([last?.id, pending, pins, quickFilter, mode, collection]);
+ const signature = JSON.stringify([last?.id, last?.word, pending, pins, quickFilter, mode, collection]);
  for (const container of document.querySelectorAll('.quick-desktop, .quick-mobile')) {
   if (container.dataset.state === signature) continue;
   container.dataset.state = signature;
   container.replaceChildren();
+  let group;
+  const section = title => {
+   group = element(container,'div',null,'quick-group');
+   element(group,'p',title,'quick-label');
+  };
   const shortcut = (label, callback, active = false) => {
-   const item = button(container,label,() => {
+   const item = button(group,label,() => {
     const mobile = container.classList.contains('quick-mobile');
     document.querySelector('.backups').open = false;
     callback();
-    const target = mobile ? $('heading') : [...container.querySelectorAll('button')].find(candidate => candidate.textContent === label);
+    const target = mobile ? $('heading') : [...container.querySelectorAll('button')].find(candidate => candidate.firstChild?.textContent === label);
     if (target) { target.tabIndex = target === $('heading') ? -1 : 0; target.focus({preventScroll:true}); }
    }, 'shortcut');
    if (active) item.setAttribute('aria-current','true');
    return item;
   };
-  element(container,'p','Acesso rápido','quick-label');
-  shortcut('Continuar de onde parei', () => openWord(last.id)).disabled = !last;
+  section('Acesso rápido');
+  const resume = shortcut('Continuar de onde parei', () => openWord(last.id));
+  resume.disabled = !last;
+  if (last) {
+   const word = element(resume,'small',displayWord(last.word),'shortcut-detail');
+   word.setAttribute('aria-hidden','true');
+  }
   shortcut('Adicionadas recentemente', () => selectQuickFilter('recent'), quickFilter === 'recent');
   shortcut('Favoritas', () => selectQuickFilter('favorites'), quickFilter === 'favorites');
-  shortcut('Para revisar hoje (' + pending + ')', () => startReview(true)).disabled = pending === 0;
+  section('Estudo');
+  shortcut('Para revisar hoje (' + pending + ')', () => startReview(true), mode === 'review').disabled = pending === 0;
   if (pins.length) {
-   element(container,'p','Coleções fixadas','quick-label');
+   section('Coleções fixadas');
    for (const tag of pins) shortcut(tag, () => showCollection(tag), mode === 'collections' && collection === tag);
   }
  }
 }
 
 function openWord(id) {
- preferences().last = id;
- savePreferences();
+ rememberCard(id);
  quickFilter = '';
  selected = id;
  mode = 'words';
@@ -511,7 +609,7 @@ function render() {
   const pin = button(chips,pinned ? 'Desafixar coleção' : 'Fixar coleção',() => {
    if (pinned) pins.splice(pins.indexOf(collection),1);
    else if (pins.length < 3) pins.push(collection);
-   savePreferences();
+   syncPreference(pinned ? 'unpin' : 'pin', collection);
    render();
    $('pin-collection')?.focus();
   });
@@ -540,8 +638,7 @@ function render() {
  for(const record of matches) {
   const item = button(list,null,() => {
    selected = record.id;
-   preferences().last = record.id;
-   savePreferences();
+   rememberCard(record.id);
    render();
    if(matchMedia('(max-width: 550px)').matches) area.scrollIntoView({block:'start'});
    else area.querySelector('h2')?.focus();
@@ -678,7 +775,7 @@ async function refreshOnline() {
  const user = account;
  const token = ++refreshToken;
  if(!user) return;
- const incoming = await online.load();
+ const [incoming] = await Promise.all([online.load(),fetchPreferences(preferenceSession)]);
  if(account?.id !== user.id || token !== refreshToken) return;
  records = incoming.filter(valid);
  render();
@@ -691,6 +788,7 @@ async function setAccount(session) {
  const next = session?.user ?? null;
  if(previous?.id === next?.id) return;
  account = next;
+ initializePreferences(next);
  ++refreshToken;
  quickFilter = '';
  mode = 'words';
