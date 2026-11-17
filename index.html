@@ -67,6 +67,13 @@
   #add-sense { min-height: 44px; }
   #login form { padding: 16px; }
 }
+.search-row { display: flex; gap: 8px; min-width: 0; }
+.search-row input { flex: 1; min-width: 0; }
+.search-row input::-webkit-search-cancel-button { display: none; }
+.search-row button { flex: none; }
+.word-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 10px 10px; }
+.word-panel-heading h2 { padding: 0; }
+#word-count { font-size: .82rem; color: #46554e; text-align: right; }
 </style>
 <aside aria-label="Menu">
 <p class="brand"><span aria-hidden="true">✦</span>Meu Dicionário<br> Pessoal</p>
@@ -90,8 +97,8 @@
 </section>
 <header><h1 id="heading">Minhas palavras</h1><button id="new" class="action new">＋ Nova ficha</button></header>
 <div id="notice" role="status"></div>
-<div class="tools" id="tools"><input id="query" type="search" aria-label="Buscar palavra, sinônimo ou fonte" placeholder="Buscar palavra, sinônimo ou fonte"><div id="chips" class="chips" role="group" aria-label="Filtrar por coleção"></div></div>
-<div class="columns" id="columns"><section class="word-panel" aria-labelledby="word-list-label"><h2 id="word-list-label">Fichas</h2><div class="list" id="list"></div></section><article class="entry" id="entry" aria-label="Ficha selecionada"></article></div>
+<div class="tools" id="tools"><div class="search-row"><input id="query" type="search" aria-label="Buscar palavra, sinônimo ou fonte" placeholder="Buscar palavra, sinônimo ou fonte"><button type="button" id="clear-query" class="action" aria-label="Limpar busca" hidden>Limpar</button></div><div id="chips" class="chips" role="group" aria-label="Filtrar por coleção"></div></div>
+<div class="columns" id="columns"><section class="word-panel" aria-labelledby="word-list-label"><div class="word-panel-heading"><h2 id="word-list-label">Fichas</h2><span id="word-count" aria-live="polite" aria-atomic="true"></span></div><div class="list" id="list"></div></section><article class="entry" id="entry" aria-label="Ficha selecionada"></article></div>
 </main>
 <dialog id="login" aria-labelledby="login-title">
 <form id="login-form">
@@ -120,6 +127,7 @@
 import { client, online } from "./dictionary-online.js";
 const $ = id => document.getElementById(id);
 const storeKey = 'meu-dicionario-pessoal-v1';
+const alphabetical = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 const split = value => value.split(',').map(item => item.trim()).filter(Boolean);
 const normalize = value => value.normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('pt-BR').trim();
 const sample = [
@@ -247,7 +255,12 @@ function render() {
   chip.setAttribute('aria-pressed',String(collection === tag));
  }
  const query = normalize($('query').value);
- const matches = records.filter(record => (!collection || split(record.tags).includes(collection)) && normalize([record.word,record.synonyms,record.source].join(' ')).includes(query));
+ $('clear-query').hidden = $('query').value.length === 0;
+ const matches = records.filter(record => (!collection || split(record.tags).includes(collection)) && normalize([record.word,record.synonyms,record.source].join(' ')).includes(query))
+  .sort((first, second) => alphabetical.compare(first.word, second.word));
+ const countLabel = matches.length === 1 ? '1 ficha' : matches.length + ' fichas';
+ const count = query || collection ? countLabel + ' de ' + records.length : countLabel;
+ if ($('word-count').textContent !== count) $('word-count').textContent = count;
  if(!matches.some(record => record.id === selected)) selected = matches[0]?.id;
  for(const record of matches) {
   const item = button(list,null,() => {
@@ -334,6 +347,11 @@ $('words').onclick = () => {mode = 'words'; collection = ''; render();};
 $('collections').onclick = () => {mode = 'collections'; $('query').value = ''; render(); $('chips').querySelector('button')?.focus();};
 $('review').onclick = startReview;
 $('query').oninput = render;
+$('clear-query').onclick = () => {
+ $('query').value = '';
+ render();
+ $('query').focus();
+};
 $('export').onclick = () => {
  const url = URL.createObjectURL(new Blob([JSON.stringify({version:1,records},null,2)],{type:'application/json'}));
  const anchor = document.createElement('a');
