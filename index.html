@@ -297,7 +297,7 @@ const sample = [
 let records = sample, selected = sample[0].id, collection = '', editing = '', mode = 'words', reviewSet = [], reviewIndex = 0, revealed = false;
 const fields = ['word','grammar','example','synonyms','sentence','source','tags'];
 function valid(item) {
- return item && typeof item.id === 'string' && fields.every(key => typeof item[key] === 'string') && item.word.trim() && item.grammar.trim() && Array.isArray(item.senses) && item.senses.length >= 1 && item.senses.length <= 3 && item.senses.every(s => typeof s === 'string' && s.trim());
+ return item && typeof item.id === 'string' && fields.every(key => typeof item[key] === 'string') && item.word.trim() && item.grammar.trim() && Array.isArray(item.senses) && item.senses.length >= 1 && item.senses.length <= 8 && item.senses.every(s => typeof s === 'string' && s.trim());
 }
 try {
  const data = JSON.parse(localStorage.getItem(storeKey));
@@ -666,7 +666,7 @@ function startReview(onlyDue = false) {
 }
 function addSense(value='') {
  const parent = $('sense-fields');
- if(parent.children.length >= 3) return;
+ if(parent.children.length >= 8) return;
  const index = parent.children.length + 1;
  const label = element(parent,'label','Significado '+index);
  const area = element(label,'textarea',null);
